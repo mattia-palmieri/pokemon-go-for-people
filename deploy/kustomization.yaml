@@ -12,4 +12,4 @@ resources:
 images:
   - name: app
     newName: ghcr.io/mattia-palmieri/pokemon-go-for-people
-    newTag: fe04822
+    newTag: fa89d75
