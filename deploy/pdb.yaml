@@ -1,0 +1,10 @@
+# Keep at least 1 of the 2 replicas up during voluntary disruptions (Radar Check: missingPDB).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: app
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: app

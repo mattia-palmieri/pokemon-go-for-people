@@ -16,6 +16,20 @@ spec:
       labels:
         app: app
     spec:
+      # The app never calls the Kubernetes API (Radar Check).
+      automountServiceAccountToken: false
+      # Spread the 2 replicas over nodes; ScheduleAnyway so a pod never stays Pending (Radar Check).
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: app
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
       containers:
         - name: app
           image: app
@@ -87,7 +101,12 @@ spec:
               path: /healthz
               port: http
             periodSeconds: 10
+          # Read-only root filesystem; /tmp is the only writable path (Radar Check).
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           securityContext:
+            readOnlyRootFilesystem: true
             runAsNonRoot: true
             allowPrivilegeEscalation: false
             seccompProfile:
