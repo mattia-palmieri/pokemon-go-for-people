@@ -2,7 +2,7 @@
 // Run: node --env-file=../.env seed.js [count]
 const { es } = require('./elastic');
 
-const INDEX = 'players';
+const INDEX = process.env.SEED_INDEX || 'players';
 const COUNT = Number(process.argv[2] || 2000);
 
 // Interest -> share of attendees who have it. Kubernetes is near-universal on
@@ -17,6 +17,37 @@ const TOPICS = {
   FinOps: 0.025, vCluster: 0.015, CloudNativePG: 0.015, Falco: 0.01, 'SPIFFE/SPIRE': 0.008,
   etcd: 0.008, Accessibility: 0.008, Raft: 0.005, 'Retro gaming': 0.01, Sourdough: 0.006,
   COBOL: 0.003, 'Mechanical keyboards': 0.012, Climbing: 0.01,
+};
+
+// How a person would say each interest in their own words, without the tag
+// name. The bio is embedded with Jina, so a search for "kernel tracing" finds
+// eBPF people even though no tag says that.
+const PHRASES = {
+  'Platform engineering': 'build internal developer platforms', SRE: 'keep production up and own the pager',
+  Argo: 'ship apps from git with Argo', Go: 'write backend services in a compiled language from Google',
+  Helm: 'package apps as charts', Prometheus: 'scrape and alert on metrics',
+  OpenTelemetry: 'instrument code with vendor-neutral traces', Terraform: 'write infrastructure as code',
+  Istio: 'run a service mesh with sidecars', GitOps: 'let a git repo drive what runs in the cluster',
+  Python: 'script everything in Python', 'LLM inference': 'serve large language models fast',
+  Envoy: 'tune L7 proxies', Flux: 'reconcile clusters from git with Flux',
+  Rust: 'write memory-safe systems code', Backstage: 'build a developer portal and service catalog',
+  eBPF: 'trace kernel events without touching app code', Cilium: 'do networking and security in the Linux kernel',
+  Linkerd: 'run a lightweight mesh with mTLS', Crossplane: 'manage cloud resources as Kubernetes objects',
+  'Gateway API': 'route ingress traffic the new standard way', Kyverno: 'write policies that block bad manifests',
+  'Chaos engineering': 'break things on purpose to find weak spots', WebAssembly: 'run tiny sandboxed modules instead of containers',
+  KEDA: 'scale workloads on queue length and events', Dapr: 'give microservices building blocks through a sidecar',
+  'GPU scheduling': 'share GPUs between training jobs', Kubeflow: 'run ML pipelines on the cluster',
+  FinOps: 'cut the cloud bill', vCluster: 'give each team its own virtual cluster',
+  CloudNativePG: 'run Postgres with an operator', Falco: 'detect intrusions from syscalls at runtime',
+  'SPIFFE/SPIRE': 'give every workload a cryptographic identity', etcd: 'care about the key-value store under the control plane',
+  Accessibility: 'make UIs work with screen readers', Raft: 'read consensus papers for fun',
+  'Retro gaming': 'collect old consoles and play 8-bit games', Sourdough: 'bake bread with a wild yeast starter',
+  COBOL: 'maintain mainframe code older than me', 'Mechanical keyboards': 'build clicky keyboards with custom switches',
+  Climbing: 'go bouldering on weekends',
+};
+const bioOf = (tags) => {
+  const p = tags.filter((t) => PHRASES[t]).map((t) => PHRASES[t]);
+  return p.length ? `I ${p.join(', ')}.` : 'I run containers on Kubernetes.';
 };
 
 const FIRST = ['Ana', 'Kenji', 'Priya', 'Lucas', 'Fatima', 'Noah', 'Mei', 'Omar', 'Sofia', 'Ravi',
@@ -56,6 +87,7 @@ function bot(i) {
     name: `${rand(FIRST)} ${rand(LAST)}`,
     avatar: rand(AVATARS),
     tags,
+    bio: bioOf(tags),
     zone: z.name,
     location: { lat: z.lat + jitter(), lon: z.lon + jitter() },
     bot: true,
@@ -70,20 +102,23 @@ async function main() {
         name: { type: 'text' },
         avatar: { type: 'keyword', index: false },
         tags: { type: 'keyword' },
+        // Jina v5 embeddings via Elastic Inference Service: search by meaning.
+        bio: { type: 'semantic_text', inference_id: '.jina-embeddings-v5-text-small' },
         zone: { type: 'keyword' },
         location: { type: 'geo_point' },
         bot: { type: 'boolean' },
       },
     },
   });
-  for (let start = 0; start < COUNT; start += 500) {
+  for (let start = 0; start < COUNT; start += 200) {
     const lines = [];
-    for (let i = start; i < Math.min(COUNT, start + 500); i++) {
+    for (let i = start; i < Math.min(COUNT, start + 200); i++) {
       const b = bot(i);
       lines.push(JSON.stringify({ index: { _index: INDEX, _id: b.id } }), JSON.stringify(b));
     }
     const r = await es('POST', '/_bulk?refresh=wait_for', lines.join('\n') + '\n');
-    if (r.errors) throw new Error('bulk had errors');
+    if (r.errors) throw new Error('bulk had errors: ' + JSON.stringify(r.items.find((i) => i.index.error)).slice(0, 300));
+    console.log(`  ${Math.min(COUNT, start + 200)} / ${COUNT}`);
   }
   const c = await es('GET', `/${INDEX}/_count`);
   console.log(`indexed ${c.count} players into ${INDEX}`);
