@@ -169,6 +169,9 @@ async function heatmap(tag) {
 // "Keynote ends": the crowd leaves the hall and everyone hunts at once.
 // Bounded on purpose: one run at a time, max 60 s, max 3,000 requests, 25 in flight.
 const KEYNOTE = { seconds: 60, maxRequests: 3000, concurrency: 25 };
+// Bots go through the Kubernetes Service so every replica shares the load
+// (Radar AI investigation: with 127.0.0.1 one pod took it all, the other idled).
+const KEYNOTE_TARGET = process.env.KEYNOTE_TARGET || `http://127.0.0.1:${port}`;
 const BOT_TAGS = ['eBPF', 'Rust', 'WebAssembly', 'Cilium', 'Crossplane', 'KEDA', 'Dapr', 'Falco', 'Kubernetes', 'Go', 'Python', 'GitOps', 'Sourdough', 'Retro gaming'];
 let keynote = { running: false, sent: 0, failed: 0, ms: [] };
 function keynoteStatus() {
@@ -186,7 +189,7 @@ async function runKeynote() {
       const tags = [...BOT_TAGS].sort(() => Math.random() - 0.5).slice(0, 3).join(',');
       const t0 = Date.now();
       try {
-        const r = await fetch(`http://127.0.0.1:${port}/api/match?tags=${encodeURIComponent(tags)}`);
+        const r = await fetch(`${KEYNOTE_TARGET}/api/match?tags=${encodeURIComponent(tags)}`);
         if (!r.ok) keynote.failed++;
         await r.arrayBuffer();
       } catch { keynote.failed++; }

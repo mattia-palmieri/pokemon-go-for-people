@@ -39,6 +39,9 @@ spec:
           env:
             - name: TEAM_NAME
               value: "mp"
+            # Keynote load goes through the Service, not 127.0.0.1, so both pods share it.
+            - name: KEYNOTE_TARGET
+              value: "http://app"
             - name: ELASTIC_URL
               valueFrom:
                 secretKeyRef:
