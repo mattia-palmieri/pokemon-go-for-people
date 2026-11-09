@@ -25,6 +25,16 @@ spec:
           env:
             - name: TEAM_NAME
               value: "mp"
+            - name: ELASTIC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: elastic
+                  key: url
+            - name: ELASTIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: elastic
+                  key: api-key
           resources:
             requests:
               cpu: 100m
