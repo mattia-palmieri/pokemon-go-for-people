@@ -126,6 +126,38 @@ async function heatmap(tag) {
   return r.aggregations.cells.buckets.filter((b) => b.doc_count >= 3).map((b) => ({ count: b.doc_count, ...b.center.location }));
 }
 
+// "Keynote ends": the crowd leaves the hall and everyone hunts at once.
+// Bounded on purpose: one run at a time, max 60 s, max 3,000 requests, 25 in flight.
+const KEYNOTE = { seconds: 60, maxRequests: 3000, concurrency: 25 };
+const BOT_TAGS = ['eBPF', 'Rust', 'WebAssembly', 'Cilium', 'Crossplane', 'KEDA', 'Dapr', 'Falco', 'Kubernetes', 'Go', 'Python', 'GitOps', 'Sourdough', 'Retro gaming'];
+let keynote = { running: false, sent: 0, failed: 0, ms: [] };
+function keynoteStatus() {
+  const ms = [...keynote.ms].sort((a, b) => a - b);
+  const pct = (q) => (ms.length ? ms[Math.min(ms.length - 1, Math.floor(q * ms.length))] : null);
+  return { running: keynote.running, sent: keynote.sent, failed: keynote.failed, p50: pct(0.5), p95: pct(0.95) };
+}
+async function runKeynote() {
+  keynote = { running: true, sent: 0, failed: 0, ms: [] };
+  const end = Date.now() + KEYNOTE.seconds * 1000;
+  console.log('keynote: start', KEYNOTE);
+  const bot = async () => {
+    while (Date.now() < end && keynote.sent < KEYNOTE.maxRequests) {
+      keynote.sent++;
+      const tags = [...BOT_TAGS].sort(() => Math.random() - 0.5).slice(0, 3).join(',');
+      const t0 = Date.now();
+      try {
+        const r = await fetch(`http://127.0.0.1:${port}/api/match?tags=${encodeURIComponent(tags)}`);
+        if (!r.ok) keynote.failed++;
+        await r.arrayBuffer();
+      } catch { keynote.failed++; }
+      keynote.ms.push(Date.now() - t0);
+    }
+  };
+  await Promise.all(Array.from({ length: KEYNOTE.concurrency }, bot));
+  keynote.running = false;
+  console.log('keynote: done', keynoteStatus());
+}
+
 async function readBody(req) {
   let s = '';
   for await (const c of req) { s += c; if (s.length > 1e5) throw new Error('too big'); }
@@ -159,6 +191,10 @@ const server = http.createServer(async (req, res) => {
     if (p === '/api/heat') {
       const tag = url.searchParams.get('tag');
       return tag ? send(res, 200, await heatmap(tag)) : send(res, 400, { error: 'tag required' });
+    }
+    if (p === '/api/keynote') {
+      if (req.method === 'POST' && !keynote.running) runKeynote().catch((e) => { keynote.running = false; console.error('keynote', e.message); });
+      return send(res, 200, keynoteStatus());
     }
     if (p === '/api/catch' && req.method === 'POST') {
       const b = await readBody(req);

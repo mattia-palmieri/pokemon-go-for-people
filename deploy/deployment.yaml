@@ -42,6 +42,8 @@ spec:
               value: "pokemon-go-for-people"
             - name: OTEL_NODE_ENABLED_INSTRUMENTATIONS
               value: "http,undici"
+            - name: OTEL_NODE_RESOURCE_DETECTORS
+              value: "env,host,os,process"
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
               value: "http/protobuf"
             - name: OTEL_TRACES_EXPORTER

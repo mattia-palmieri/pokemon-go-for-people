@@ -31,7 +31,7 @@
       <div class="hint">Your interests. Rare ones count most. Edit what others see.</div>
       <div class="tags" id="meTags"></div>
       <button class="btn" id="go">Start the hunt <span class="arrow">→</span></button>
-      <div class="row"><button class="link" id="newMe">New trainer</button><button class="link" id="toDex">Dex (0)</button></div>
+      <div class="row"><button class="link" id="newMe">New trainer</button><button class="link" id="keynote">📣 Keynote ends</button><button class="link" id="toDex">Dex (0)</button></div>
     </div>
     <div class="ver" id="ver"></div>
   </section>
@@ -254,6 +254,19 @@ $('bRun').onclick = () => { renderBadge(); show('s-badge'); };
 $('newMe').onclick = () => newMe().catch(err);
 $('toDex').onclick = () => { renderDex(); show('s-dex'); };
 $('dexBack').onclick = () => { renderBadge(); show('s-badge'); };
+// "Keynote ends": bounded load on the server (see server.js). Live counter in the toast.
+let kTimer = null;
+function toast(text, keep) { $('err').textContent = text; $('err').classList.add('on'); if (!keep) setTimeout(() => $('err').classList.remove('on'), 4000); }
+$('keynote').onclick = async () => {
+  if (kTimer) return;
+  try { await api('/api/keynote', { method: 'POST' }); } catch (e) { return err(e); }
+  kTimer = setInterval(async () => {
+    const s = await api('/api/keynote').catch(() => null); if (!s) return;
+    const line = `${s.sent.toLocaleString()} trainers hunting · p95 ${s.p95 ?? '…'} ms${s.failed ? ` · ${s.failed} failed` : ''}`;
+    if (s.running) toast('📣 Keynote ended! ' + line, true);
+    else { clearInterval(kTimer); kTimer = null; toast('Crowd settled. ' + line); }
+  }, 1500);
+};
 api('/api/version').then((v) => $('ver').textContent = 'v ' + v.version).catch(() => {});
 renderDex();
 newMe().catch((e) => { err(e); $('err').textContent = 'Cannot reach the game server.'; });
