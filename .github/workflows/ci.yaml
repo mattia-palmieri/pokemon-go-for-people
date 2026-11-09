@@ -1,0 +1,31 @@
+name: ci
+
+# Runs on every pull request, so Gitar can diagnose and fix a failing check
+# before it reaches main (main deploys through build-and-deploy).
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: Install
+        working-directory: app
+        run: npm ci --no-audit --no-fund
+      - name: Syntax check
+        working-directory: app
+        run: node --check server.js && node --check seed.js && node --check elastic.js
+      - name: Unit tests
+        working-directory: app
+        run: npm test
+      - name: Render Kubernetes manifests
+        run: kubectl kustomize deploy > /dev/null
