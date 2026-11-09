@@ -97,7 +97,7 @@ node --env-file=../.env seed.js 2000   # create the 2,000 bot attendees
 node --env-file=../.env server.js      # http://localhost:8080
 ```
 
-Traces to Dash0 (optional): set `DASH0_ENDPOINT` and `DASH0_AUTH_TOKEN`, and run with
+Traces to Dash0 (optional): set `OTEL_EXPORTER_OTLP_ENDPOINT=<dash0 otlp endpoint>` and `OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <dash0 token>"`, and run with
 `NODE_OPTIONS="--require @opentelemetry/auto-instrumentations-node/register"` (see `deploy/deployment.yaml` for the full OTel env).
 
 Deploy: `deploy/` (Kustomize) + `argocd/`. Push to `main` → GitHub Actions builds and pushes the image → Argo CD syncs.
