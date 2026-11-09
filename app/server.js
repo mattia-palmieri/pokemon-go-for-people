@@ -61,78 +61,76 @@ async function randomMe() {
   return { id: h._id, ...h._source };
 }
 
-// Whole-index player count, for rarity and points. It barely changes, so we
-// cache it 30 s (found by Dash0 Agent0: it was a 2nd, sequential Elastic call
-// on every match). One shared refresh at a time; serve stale while it runs.
-const COUNT_TTL_MS = 30_000;
-const count = { value: null, at: 0, inflight: null };
-function playerCount() {
-  if (count.value !== null && Date.now() - count.at < COUNT_TTL_MS) return count.value;
-  count.inflight ??= es('GET', `/${PLAYERS}/_count`)
-    .then((r) => Object.assign(count, { value: r.count, at: Date.now() }).value)
-    .catch((err) => { if (count.value === null) throw err; return count.value; })
-    .finally(() => { count.inflight = null; });
-  return count.value ?? count.inflight;
+// Crowd stats: total players + how many have each tag (for rarity, points,
+// and to tell known tags from free words). They barely change, so we cache
+// them 30 s (found by Dash0 Agent0: a per-request _count was a 2nd, sequential
+// Elastic call). One shared refresh at a time; serve stale while it runs.
+const STATS_TTL_MS = 30_000;
+const stats = { value: null, at: 0, inflight: null };
+function crowdStats() {
+  if (stats.value !== null && Date.now() - stats.at < STATS_TTL_MS) return stats.value;
+  stats.inflight ??= es('POST', `/${PLAYERS}/_search`, {
+    size: 0, track_total_hits: true, aggs: { df: { terms: { field: 'tags', size: 500 } } },
+  })
+    .then((r) => {
+      const value = { total: r.hits.total.value, df: Object.fromEntries(r.aggregations.df.buckets.map((x) => [x.key, x.doc_count])) };
+      return Object.assign(stats, { value, at: Date.now() }).value;
+    })
+    .catch((err) => { if (stats.value === null) throw err; return stats.value; })
+    .finally(() => { stats.inflight = null; });
+  return stats.value ?? stats.inflight;
 }
 
-// The core: one hybrid Elastic query. Each shared interest is a term query;
-// BM25's IDF makes a shared rare interest worth far more than a shared common
-// one, so "Kubernetes" (everyone) adds ~0 and "eBPF" (3%) adds a lot. A Jina
-// semantic leg on bios finds people who mean the same thing in other words.
+// Jina similarity floor for free words: real matches score 0.75-0.85,
+// junk ("asdfg", "pizza") 0.60-0.65 on this index.
+const MEANING_MIN_SCORE = 0.7;
+// A meaning-only match counts like a rare tag, never more than a real one.
+const MEANING_POINTS = 2;
+
+// The core: one Elastic query, hybrid when needed.
+// - Known tags -> BM25 term queries. IDF makes a shared rare interest worth
+//   far more than a common one: "Kubernetes" (everyone) adds ~0, "eBPF" a lot.
+// - Free words nobody has as a tag ("kernel tracing") -> Jina semantic search
+//   on bios, which say interests in other words.
+// - Both -> fused with RRF.
 async function match(me, tags, exclude) {
+  const { total, df } = await crowdStats();
+  const known = tags.filter((t) => df[t]);
+  const free = tags.filter((t) => !df[t]);
   const must_not = [{ ids: { values: [me.id, ...exclude].filter(Boolean) } }];
+  const legs = [];
+  if (known.length) {
+    legs.push({
+      standard: {
+        // Drops matches on common tags only (Kubernetes ~0.1): an interest everyone has is not a match.
+        min_score: 1,
+        query: { bool: { should: known.map((t) => ({ term: { tags: { value: t, _name: t } } })), minimum_should_match: 1, must_not } },
+      },
+    });
+  }
+  if (free.length) {
+    legs.push({
+      standard: {
+        min_score: MEANING_MIN_SCORE,
+        query: { bool: { must: { semantic: { field: 'bio', query: free.join(', ') } }, must_not } },
+      },
+    });
+  }
   const r = await es('POST', `/${PLAYERS}/_search`, {
     size: 5,
-    track_total_hits: true,
     _source: ['name', 'avatar', 'tags', 'bio', 'zone', 'location'],
-    // Hybrid: BM25 on exact tags (rarity via IDF) + Jina semantic search on
-    // bios (meaning: "kernel tracing" finds eBPF people), fused with RRF.
-    retriever: {
-      rrf: {
-        rank_window_size: 50,
-        retrievers: [
-          {
-            standard: {
-              // min_score drops matches on common tags only (Kubernetes ~0.1):
-              // an interest everyone has is not a match.
-              min_score: 1,
-              query: {
-                bool: {
-                  should: tags.map((t) => ({ term: { tags: { value: t, _name: t } } })),
-                  minimum_should_match: 1,
-                  must_not,
-                },
-              },
-            },
-          },
-          { standard: { query: { bool: { must: { semantic: { field: 'bio', query: tags.join(', ') } }, must_not } } } },
-        ],
-      },
-    },
-    aggs: {
-      crowd: {
-        global: {},
-        aggs: { df: { terms: { field: 'tags', include: tags, size: tags.length || 1 } } },
-      },
-    },
+    retriever: legs.length > 1 ? { rrf: { rank_window_size: 50, retrievers: legs } } : legs[0],
   });
-  const total = await playerCount();
-  const df = Object.fromEntries(r.aggregations.crowd.df.buckets.map((b) => [b.key, b.doc_count]));
   const points = (t) => Math.round(Math.log(total / (df[t] || 1)) * 10) / 10;
+  const crowd = Object.fromEntries(known.map((t) => [t, df[t]]));
 
-  // Words nobody has as a tag ("kernel tracing") can only match by meaning.
-  const free = tags.filter((t) => !df[t]);
-  const rarest = [...tags].sort((a, b) => (df[a] || 0) - (df[b] || 0))[0];
   const matches = r.hits.hits.map((h) => {
     const shared = (h.matched_queries || [])
       .map((t) => ({ tag: t, people: df[t] || 0, points: points(t), rarity: rarity(df[t] || 0, total) }))
       .sort((a, b) => a.people - b.people);
-    // Only common tags in common (everyone has Kubernetes)? Then the match came from meaning.
-    const byMeaning = !shared.some((x) => x.rarity !== 'common');
-    const gemTag = free[0] || rarest;
-    const gem = byMeaning
-      ? { tag: gemTag, people: df[gemTag] || 0, points: points(gemTag), rarity: free[0] ? 'legendary' : rarity(df[gemTag] || 0, total), meaning: true }
-      : shared[0];
+    // Free words given and no rare tag in common? Then Jina found them by meaning.
+    const byMeaning = free.length > 0 && !shared.some((x) => x.rarity !== 'common');
+    const gem = byMeaning ? { tag: free[0], people: 0, points: MEANING_POINTS, rarity: 'rare', meaning: true } : shared[0];
     const meters = me.location ? metersBetween(me.location, h._source.location) : null;
     return {
       id: h._id,
@@ -140,7 +138,7 @@ async function match(me, tags, exclude) {
       avatar: h._source.avatar,
       zone: h._source.zone,
       // Shown score = sum of rarity points (the IDF story); order = RRF rank.
-      score: Math.round((byMeaning ? gem.points : shared.reduce((a, x) => a + x.points, 0)) * 10) / 10,
+      score: Math.round((byMeaning ? MEANING_POINTS : shared.reduce((a, x) => a + x.points, 0)) * 10) / 10,
       gem,
       shared,
       bio: h._source.bio || '',
@@ -150,7 +148,7 @@ async function match(me, tags, exclude) {
       zoneCenter: ZONE_CENTERS[h._source.zone] || null,
     };
   });
-  return { total, crowd: df, matches };
+  return { total, crowd, matches };
 }
 
 // Where the people with this interest are: a geohash heat map from Elastic.
