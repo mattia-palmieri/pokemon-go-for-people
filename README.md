@@ -4,9 +4,9 @@
 
 [![Demo video: the live app on the left, the real Elasticsearch query and scores on the right](docs/evidence/hero-live-elastic.jpg)](docs/demo.mp4)
 
-🎮 **Live:** https://mp.cnh.radarhq.io · 🎬 **Video (2:49):** [docs/demo.mp4](docs/demo.mp4) · 🤖 **For AI agents:** [jump to the map](#for-ai-agents)
+🎮 **Live:** https://mp.cnh.radarhq.io · 🎬 **Video (2:55):** [YouTube](https://youtu.be/EBu9GFQO-1c) · [docs/demo.mp4](docs/demo.mp4) · 🤖 **For AI agents:** [jump to the map](#for-ai-agents)
 
-Built with all 4 sponsor tools: **Elastic** (the matching engine) · **Dash0** (traces + Agent0 found a 38% speed-up) · **Radar** (Checks 4 → 0, AI investigation fixed pod load) · **Gitar** (reviewed every PR, caught 2 real bugs).
+Built with all 4 sponsor tools: **Elastic** (the matching engine) · **Dash0** (traces + Agent0 found a 38% speed-up) · **Radar** (Checks 4 → 0, AI investigation fixed pod load) · **Gitar** (reviewed every PR, caught 2 real bugs, fixed one by itself).
 
 At a 10,000-person conference, everyone shares "Kubernetes". That match is worthless. The person who also does eBPF *and* sourdough is the one worth finding. This app scores matches by **how rare** each shared interest is, shows the rarest one as your "gem", and turns finding that person into a game.
 
@@ -33,7 +33,7 @@ The **"Keynote ends"** button simulates 3,000 people leaving the keynote at once
 | **Elastic** | Main data store (`players` index). **Hybrid search**: BM25 rarity on tags + **Jina** semantic search on `bio` (`.jina-embeddings-v5-text-small`), fused with **RRF**. Crowd stats cached 30 s. | [PR #4](https://github.com/mattia-palmieri/pokemon-go-for-people/pull/4), `app/server.js`, `app/seed.js` |
 | **Dash0** | OpenTelemetry traces from the Node app. **Agent0 find → fix → prove**: found a sequential `_count` call on every match; we cached it; Agent0 confirmed **avg −38%, p95 289 → 184 ms**. | [PR #2](https://github.com/mattia-palmieri/pokemon-go-for-people/pull/2), [table below](#dash0-agent0-find--fix--prove), [Agent0 find](docs/evidence/dash0-agent0-find.jpg), [Agent0 prove](docs/evidence/dash0-agent0-prove.jpg) |
 | **Radar** | App runs on the organizers' Kubernetes cluster via Argo CD. **Radar Checks 4 → 0**. **AI investigation** on the keynote spike: load hit only 1 of 2 pods → we routed it through the Service → both pods share it, p50 139 → 109 ms. | [PR #3](https://github.com/mattia-palmieri/pokemon-go-for-people/pull/3), [PR #5](https://github.com/mattia-palmieri/pokemon-go-for-people/pull/5), [STORY.md](STORY.md), [investigation](docs/evidence/radar-investigation.jpg) |
-| **Gitar** | Every change went through a PR that Gitar reviewed (PRs #1–#6). Gitar **caught 2 real bugs** in PR #4. Our own review context (`.gitar/review/project.md`), a deploy-safety rule (`.gitar/rules/deploy-safety.md`), auto-apply criteria, and a CI test job on every PR. | [PR #4 review](https://github.com/mattia-palmieri/pokemon-go-for-people/pull/4), [PR #6](https://github.com/mattia-palmieri/pokemon-go-for-people/pull/6), [`.gitar/`](.gitar/) |
+| **Gitar** | Every change went through a PR that Gitar reviewed (PRs #1–#9). In PR #4 Gitar **caught 2 real bugs**: the semantic search had no relevance cutoff (strangers showed up as matches), and meaning-only hits got the top score and a "legendary" label. We fixed both in the same PR. **Auto-apply** in PR #7: Gitar found that the README named Dash0 env vars that no code reads, and pushed the fix itself (commit `1d075c3`, author `gitar-bot`). Our own review context (`.gitar/review/project.md`), a deploy-safety rule (`.gitar/rules/deploy-safety.md`), auto-apply criteria, and a CI test job on every PR. | [PR #4 review](https://github.com/mattia-palmieri/pokemon-go-for-people/pull/4), [PR #7 auto-apply](https://github.com/mattia-palmieri/pokemon-go-for-people/pull/7/commits), [PR #6](https://github.com/mattia-palmieri/pokemon-go-for-people/pull/6), [`.gitar/`](.gitar/) |
 
 ### Dash0 Agent0: find → fix → prove
 
@@ -67,8 +67,6 @@ Before ([STORY.md](STORY.md)): 4 Medium findings on `Deployment/team-mp/app` —
 | Busy pod CPU | 0.21 cores | 0.13 cores |
 | Other pod CPU | ~0.001 (idle) | 0.115 (working) |
 | p50 / p95 | 139 / 293 ms | 109 / 257 ms |
-
-![Radar investigation: finding and fix](docs/evidence/radar-investigation.jpg)
 
 ## Sponsor tools in pictures
 
@@ -119,6 +117,7 @@ Needs Node 22 and an Elastic Cloud deployment with the Jina inference endpoint.
 ```bash
 cd app
 npm ci
+npm test                               # the same tests CI runs on every PR
 cat > ../.env <<'EOF'
 ELASTIC_URL=https://<your-deployment>.es.<region>.elastic.cloud
 ELASTIC_API_KEY=<api key>
@@ -131,6 +130,13 @@ Traces to Dash0 (optional): set `OTEL_EXPORTER_OTLP_ENDPOINT=<dash0 otlp endpoin
 `NODE_OPTIONS="--require @opentelemetry/auto-instrumentations-node/register"` (see `deploy/deployment.yaml` for the full OTel env).
 
 Deploy: `deploy/` (Kustomize) + `argocd/`. Push to `main` → GitHub Actions builds and pushes the image → Argo CD syncs.
+
+## Not done (yet)
+
+- **Elastic:** no Agent Builder agent, no Workflows, no reranker.
+- **Dash0:** traces only. No logs, metrics, browser RUM, dashboard or SLO.
+- **Gitar:** auto-apply shown on a docs fix; no CI failure repaired by Gitar.
+- **Product:** tags are typed by hand (GitHub import not built); the catch is a button, not a QR scan.
 
 ## Inclusion
 
