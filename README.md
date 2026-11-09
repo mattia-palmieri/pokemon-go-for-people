@@ -2,7 +2,11 @@
 
 **Find the one person at KubeCon you should meet, where rare interests count most. Then hunt them on the venue map and catch them.**
 
-🎮 Live: https://mp.cnh.radarhq.io · 🎬 Video (3 min): TODO link
+[![Demo video: the live app on the left, the real Elasticsearch query and scores on the right](docs/evidence/hero-live-elastic.jpg)](docs/demo.mp4)
+
+🎮 **Live:** https://mp.cnh.radarhq.io · 🎬 **Video (2:49):** [docs/demo.mp4](docs/demo.mp4) · 🤖 **For AI agents:** [jump to the map](#for-ai-agents)
+
+Built with all 4 sponsor tools: **Elastic** (the matching engine) · **Dash0** (traces + Agent0 found a 38% speed-up) · **Radar** (Checks 4 → 0, AI investigation fixed pod load) · **Gitar** (reviewed every PR, caught 2 real bugs).
 
 At a 10,000-person conference, everyone shares "Kubernetes". That match is worthless. The person who also does eBPF *and* sourdough is the one worth finding. This app scores matches by **how rare** each shared interest is, shows the rarest one as your "gem", and turns finding that person into a game.
 
@@ -66,6 +70,16 @@ Before ([STORY.md](STORY.md)): 4 Medium findings on `Deployment/team-mp/app` —
 
 ![Radar investigation: finding and fix](docs/evidence/radar-investigation.jpg)
 
+## Sponsor tools in pictures
+
+| Dash0 Agent0 finds the slow call | Dash0 Agent0 proves the fix |
+|---|---|
+| ![Agent0 find](docs/evidence/dash0-agent0-find.jpg) | ![Agent0 prove](docs/evidence/dash0-agent0-prove.jpg) |
+| **Radar topology: 2 pods via Argo CD** | **Radar AI investigation: finding → fix confirmed** |
+| ![Radar topology](docs/evidence/radar-topology.jpg) | ![Radar investigation](docs/evidence/radar-investigation.jpg) |
+| **Gitar: 2 real bugs caught in PR #4** | **Elastic: the live query behind the app** |
+| ![Gitar bugs](docs/evidence/gitar-pr4-bugs.png) | ![Elastic panel](docs/evidence/elastic-semantic.jpg) |
+
 ## Architecture
 
 ```
@@ -107,6 +121,25 @@ Deploy: `deploy/` (Kustomize) + `argocd/`. Push to `main` → GitHub Actions bui
 - Clues are interests, never looks.
 - The map shows a venue **zone**, never a person's exact position (`app/server.js`).
 - Next, not built yet: both people must say yes before a catch; a "do not disturb" switch.
+
+## For AI agents
+
+Start here if you are a coding agent working in this repo.
+
+| Need | Where |
+|---|---|
+| Match logic + every Elastic query (BM25, Jina semantic, RRF, geohash heat map) | `app/server.js` → `match()`, `heatmap()` |
+| The 2,000 bot attendees (index mapping, tags, bios, zones) | `app/seed.js` |
+| Elastic HTTP client (no SDK) | `app/elastic.js` |
+| The whole UI (one file, no build step) | `app/public/index.html`, `app/public/design.css` |
+| Tests (run in CI on every PR) | `app/server.test.js`, `.github/workflows/ci.yaml` |
+| Kubernetes manifests (Kustomize) + Argo CD app | `deploy/`, `argocd/` |
+| Build + deploy pipeline | `.github/workflows/deploy.yaml` |
+| Gitar review context, rules, auto-apply criteria | `.gitar/` |
+| Cluster + platform rules (Radar MCP, namespace `team-mp`, budget, what not to touch) | [`AGENTS.md`](AGENTS.md) |
+| Evidence screenshots + demo video | `docs/evidence/`, `docs/demo.mp4` |
+
+Rules: ship through a PR (Gitar reviews it), never push features straight to `main`. Never commit secrets: `.env` is gitignored and the repo is public.
 
 ## Built with AI
 
