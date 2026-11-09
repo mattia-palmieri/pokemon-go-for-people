@@ -18,7 +18,7 @@ At a 10,000-person conference, everyone shares "Kubernetes". That match is worth
 
 ## How it works
 
-1. Type your interests as tags (free words work too: "kernel tracing").
+1. Add your interests as tags (free words work too: "kernel tracing"). Intended use: the tags come from your GitHub username (your public repos' languages and topics). For this demo you type them by hand.
 2. **Elasticsearch** finds your best matches. Score = sum of shared interests, each weighted by its rarity in the crowd (BM25 / IDF). Common interests give ~0 points.
 3. The rarest shared interest is your **gem**: common / rare / legendary.
 4. Hunt your match on the venue map. The battle screen shows what you share.
@@ -72,13 +72,29 @@ Before ([STORY.md](STORY.md)): 4 Medium findings on `Deployment/team-mp/app` —
 
 ## Sponsor tools in pictures
 
-| Dash0 Agent0 finds the slow call | Dash0 Agent0 proves the fix |
-|---|---|
-| ![Agent0 find](docs/evidence/dash0-agent0-find.jpg) | ![Agent0 prove](docs/evidence/dash0-agent0-prove.jpg) |
-| **Radar topology: 2 pods via Argo CD** | **Radar AI investigation: finding → fix confirmed** |
-| ![Radar topology](docs/evidence/radar-topology.jpg) | ![Radar investigation](docs/evidence/radar-investigation.jpg) |
-| **Gitar: 2 real bugs caught in PR #4** | **Elastic: the live query behind the app** |
-| ![Gitar bugs](docs/evidence/gitar-pr4-bugs.png) | ![Elastic panel](docs/evidence/elastic-semantic.jpg) |
+**Elastic: the live query behind the app**
+
+![Elastic panel](docs/evidence/elastic-semantic.jpg)
+
+**Dash0 Agent0 finds the slow call**
+
+![Agent0 find](docs/evidence/dash0-agent0-find.jpg)
+
+**Dash0 Agent0 proves the fix**
+
+![Agent0 prove](docs/evidence/dash0-agent0-prove.jpg)
+
+**Radar topology: 2 pods via Argo CD**
+
+![Radar topology](docs/evidence/radar-topology.jpg)
+
+**Radar AI investigation: finding → fix confirmed**
+
+![Radar investigation](docs/evidence/radar-investigation.jpg)
+
+**Gitar: 2 real bugs caught in PR #4**
+
+![Gitar bugs](docs/evidence/gitar-pr4-bugs.png)
 
 ## Architecture
 
