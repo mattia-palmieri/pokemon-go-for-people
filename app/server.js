@@ -118,7 +118,7 @@ async function heatmap(tag) {
     query: { term: { tags: tag } },
     aggs: {
       cells: {
-        geohash_grid: { field: 'location', precision: 7, min_doc_count: 3 },
+        geohash_grid: { field: 'location', precision: 7 },
         aggs: { center: { geo_centroid: { field: 'location' } } },
       },
     },
