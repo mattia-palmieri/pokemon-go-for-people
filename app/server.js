@@ -61,6 +61,20 @@ async function randomMe() {
   return { id: h._id, ...h._source };
 }
 
+// Whole-index player count, for rarity and points. It barely changes, so we
+// cache it 30 s (found by Dash0 Agent0: it was a 2nd, sequential Elastic call
+// on every match). One shared refresh at a time; serve stale while it runs.
+const COUNT_TTL_MS = 30_000;
+const count = { value: null, at: 0, inflight: null };
+function playerCount() {
+  if (count.value !== null && Date.now() - count.at < COUNT_TTL_MS) return count.value;
+  count.inflight ??= es('GET', `/${PLAYERS}/_count`)
+    .then((r) => Object.assign(count, { value: r.count, at: Date.now() }).value)
+    .catch((err) => { if (count.value === null) throw err; return count.value; })
+    .finally(() => { count.inflight = null; });
+  return count.value ?? count.inflight;
+}
+
 // The core: one Elastic query. Each shared interest is a term query; BM25's
 // IDF makes a shared rare interest worth far more than a shared common one,
 // so "Kubernetes" (everyone) adds ~0 and "eBPF" (3%) adds a lot.
@@ -83,7 +97,7 @@ async function match(me, tags, exclude) {
       },
     },
   });
-  const total = (await es('GET', `/${PLAYERS}/_count`)).count;
+  const total = await playerCount();
   const df = Object.fromEntries(r.aggregations.crowd.df.buckets.map((b) => [b.key, b.doc_count]));
   const points = (t) => Math.round(Math.log(total / (df[t] || 1)) * 10) / 10;
 
