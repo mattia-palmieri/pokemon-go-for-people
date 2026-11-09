@@ -131,12 +131,14 @@ Traces to Dash0 (optional): set `OTEL_EXPORTER_OTLP_ENDPOINT=<dash0 otlp endpoin
 
 Deploy: `deploy/` (Kustomize) + `argocd/`. Push to `main` → GitHub Actions builds and pushes the image → Argo CD syncs.
 
-## Not done (yet)
+## Scope and next steps
 
-- **Elastic:** no Agent Builder agent, no Workflows, no reranker.
-- **Dash0:** traces only. No logs, metrics, browser RUM, dashboard or SLO.
-- **Gitar:** auto-apply shown on a docs fix; no CI failure repaired by Gitar.
-- **Product:** tags are typed by hand (GitHub import not built); the catch is a button, not a QR scan.
+We built depth before breadth: each sponsor tool does real work in the app, with proof in a PR.
+
+- **Elastic:** hybrid search (BM25 + Jina semantic, RRF) is the core. Next: an Agent Builder "who should I meet?" agent and a reranker.
+- **Dash0:** traces drove a real find → fix → prove loop (p95 289 → 184 ms). Next: logs, metrics and an SLO on match latency.
+- **Gitar:** reviews caught 2 real bugs and auto-applied a README fix. Next: let Gitar repair a failing CI run.
+- **Product:** today you type your tags and tap to catch. Next: import tags from your GitHub profile and catch with a QR scan.
 
 ## Inclusion
 
