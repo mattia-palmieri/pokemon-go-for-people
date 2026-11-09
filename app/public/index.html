@@ -2,185 +2,254 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pokémon Go for People</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<style>
-  :root { --red:#e3350d; --dark:#1b1b2f; --ink:#222; --paper:#fffdf6; --line:#e6e1d3;
-          --legendary:#f5b301; --rare:#8b5cf6; --common:#9ca3af; --hot:#ef4444; --warm:#f97316; --cold:#3b82f6; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:Inter,system-ui,sans-serif; color:var(--ink); background:#f3efe4; }
-  header { background:var(--red); color:#fff; padding:14px 20px; display:flex; align-items:center; gap:14px; border-bottom:6px solid var(--dark); }
-  header h1 { font-family:'Press Start 2P',monospace; font-size:16px; margin:0; line-height:1.5; }
-  header small { margin-left:auto; opacity:.85; font-size:12px; }
-  .ball { width:28px; height:28px; border-radius:50%; background:linear-gradient(#fff 0 0) bottom/100% 50% no-repeat, var(--red); border:3px solid var(--dark); position:relative; flex:none; }
-  .ball::after { content:''; position:absolute; inset:50% 0 auto; height:3px; margin-top:-1.5px; background:var(--dark); }
-  .ball::before { content:''; position:absolute; width:8px; height:8px; border-radius:50%; background:#fff; border:2px solid var(--dark); left:50%; top:50%; transform:translate(-50%,-50%); z-index:1; }
-  main { display:grid; grid-template-columns:420px 1fr; gap:16px; padding:16px; height:calc(100vh - 66px); }
-  @media (max-width:900px){ main { grid-template-columns:1fr; height:auto; } #map { height:420px; } }
-  .col { display:flex; flex-direction:column; gap:14px; overflow:auto; }
-  .card { background:var(--paper); border:3px solid var(--dark); border-radius:14px; padding:14px; box-shadow:4px 4px 0 var(--dark); }
-  .card h2 { font-family:'Press Start 2P',monospace; font-size:11px; margin:0 0 10px; color:var(--red); }
-  .row { display:flex; align-items:center; gap:10px; }
-  .avatar { font-size:40px; width:56px; height:56px; display:grid; place-items:center; background:#fff; border:2px solid var(--dark); border-radius:50%; flex:none; }
-  .name { font-weight:800; font-size:18px; }
-  .muted { color:#6b7280; font-size:13px; }
-  .tags { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
-  .tag { font-size:12px; padding:4px 8px; border-radius:999px; border:2px solid var(--common); background:#fff; display:inline-flex; gap:6px; align-items:center; }
-  .tag.legendary { border-color:var(--legendary); background:#fff7db; }
-  .tag.rare { border-color:var(--rare); background:#f3eeff; }
-  .tag button { all:unset; cursor:pointer; opacity:.5; }
-  .tag button:hover { opacity:1; }
-  input { font:inherit; padding:7px 10px; border:2px solid var(--dark); border-radius:8px; width:100%; }
-  .btn { font-family:'Press Start 2P',monospace; font-size:10px; padding:12px 14px; border:3px solid var(--dark); border-radius:10px; background:#fff; cursor:pointer; box-shadow:3px 3px 0 var(--dark); }
-  .btn:active { transform:translate(2px,2px); box-shadow:1px 1px 0 var(--dark); }
-  .btn.primary { background:var(--red); color:#fff; }
-  .btn.go { background:#22c55e; color:#fff; }
-  .btns { display:flex; gap:8px; flex-wrap:wrap; }
-  .wild { font-family:'Press Start 2P',monospace; font-size:12px; line-height:1.6; margin-bottom:10px; }
-  .gem { margin:12px 0; padding:12px; border-radius:10px; border:3px solid var(--dark); }
-  .gem.legendary { background:linear-gradient(135deg,#fff3c4,#ffd84d); }
-  .gem.rare { background:linear-gradient(135deg,#efe7ff,#c4b0ff); }
-  .gem.common { background:#eee; }
-  .gem .label { font-family:'Press Start 2P',monospace; font-size:9px; letter-spacing:1px; }
-  .gem .t { font-size:22px; font-weight:800; margin:6px 0 2px; }
-  .bars { display:grid; gap:4px; margin:8px 0; }
-  .bar { display:grid; grid-template-columns:130px 1fr 44px; gap:8px; align-items:center; font-size:12px; }
-  .bar i { display:block; height:10px; border-radius:5px; background:var(--red); }
-  .bar .track { background:#eee; border-radius:5px; }
-  .heat { font-family:'Press Start 2P',monospace; font-size:13px; padding:10px; border-radius:10px; color:#fff; text-align:center; margin:10px 0; }
-  .heat.hot { background:var(--hot); } .heat.warm { background:var(--warm); } .heat.cold { background:var(--cold); }
-  #map { border:3px solid var(--dark); border-radius:14px; box-shadow:4px 4px 0 var(--dark); min-height:400px; }
-  .dex { display:flex; gap:8px; flex-wrap:wrap; }
-  .dex .mon { text-align:center; font-size:11px; width:76px; padding:6px; background:#fff; border:2px solid var(--dark); border-radius:10px; }
-  .dex .mon b { font-size:26px; display:block; }
-  .caught { position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.55); z-index:2000; }
-  .caught.show { display:grid; }
-  .caught div { font-family:'Press Start 2P',monospace; color:#fff; font-size:18px; text-align:center; line-height:2; }
-  .caught .ball { width:90px; height:90px; margin:0 auto 20px; animation:wobble .5s ease-in-out 3; }
-  .caught .ball::before { width:24px; height:24px; } .caught .ball::after { height:8px; margin-top:-4px; }
-  @keyframes wobble { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-20deg)} 75%{transform:rotate(20deg)} }
-  .empty { color:#6b7280; font-size:13px; }
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="design.css">
 </head>
 <body>
-<header>
-  <div class="ball"></div>
-  <h1>Pokémon Go for People</h1>
-  <small>KubeCon NA 2026 · rare interests count most · <span id="ver"></span></small>
-</header>
-<main>
-  <div class="col">
-    <section class="card" id="trainer">
-      <h2>Your trainer card</h2>
-      <div class="row"><div class="avatar" id="meAvatar">?</div><div><div class="name" id="meName">…</div><div class="muted" id="meZone"></div></div></div>
-      <div class="tags" id="meTags"></div>
-      <input id="addTag" placeholder="Add an interest and press Enter (e.g. eBPF)">
-      <p class="muted">You choose what others see. Remove any interest before you play.</p>
-      <div class="btns"><button class="btn primary" id="hunt">Find my match</button><button class="btn" id="newMe">New trainer</button></div>
-    </section>
-    <section class="card" id="encounter"><h2>Encounter</h2><p class="empty">Press "Find my match". Elastic scores all 2,000 people here. Shared rare interests count most, and Kubernetes counts almost nothing.</p></section>
-    <section class="card"><h2>Your collection</h2><div class="dex" id="dex"><p class="empty">No catches yet.</p></div></section>
-  </div>
-  <div id="map"></div>
-</main>
-<div class="caught" id="caught"><div><div class="ball"></div><span id="caughtText">Gotcha!</span></div></div>
+<div class="app">
+  <div class="err" id="err"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <!-- 1 · BADGE (KubeCon) -->
+  <section class="screen on" id="s-badge">
+    <div class="lanyard"></div><div class="clip"></div>
+    <div class="badge-wrap">
+      <div class="badge">
+        <div class="hole"></div>
+        <div class="kicker ev">Cloud Native Hackathon</div>
+        <div class="av" id="meAv">🙂</div>
+        <div class="name" id="meName">…</div>
+        <div class="co" id="meZone"></div>
+        <div class="stripe">TRAINER</div>
+      </div>
+      <div class="ribbons" id="ribbons"></div>
+    </div>
+    <div class="badge-foot">
+      <div class="hint">Your interests. Rare ones count most. Edit what others see.</div>
+      <div class="tags" id="meTags"></div>
+      <button class="btn" id="go">Start the hunt <span class="arrow">→</span></button>
+      <div class="row"><button class="link" id="newMe">New trainer</button><button class="link" id="toDex">Dex (0)</button></div>
+    </div>
+    <div class="ver" id="ver"></div>
+  </section>
+
+  <!-- 2 · HUNT (KubeCon venue) -->
+  <section class="screen" id="s-hunt">
+    <div id="map"></div>
+    <div class="hunt-top">
+      <div><div class="kicker">Your gem</div><h3>Someone shares <b id="hGem">…</b></h3></div>
+      <button class="link" id="huntBack">Badge</button>
+    </div>
+    <div class="near">
+      <div class="row"><span class="tag" id="hRar"></span><div class="dist"><b id="hDist"></b><small id="hZone"></small></div></div>
+      <p id="hClue"></p>
+      <div class="warm"><i id="hWarm"></i></div>
+      <div class="warm-l"><span>cold</span><span>warm</span><span>hot</span></div>
+      <button class="btn" id="approach">Approach <span class="arrow">→</span></button>
+    </div>
+  </section>
+
+  <!-- 3 · ENCOUNTER (Pokémon) -->
+  <section class="screen battle" id="s-battle">
+    <div class="b-label">ENCOUNTER</div>
+    <div class="info opp">
+      <div class="n"><span id="bName"></span><small id="bNo"></small></div>
+      <div class="types" id="bTypes"></div>
+      <div class="hpbar"><i>MATCH</i><div><span id="bHp"></span></div></div>
+    </div>
+    <div class="plat opp-p"></div><div class="mon opp-m" id="bAv"></div>
+    <div class="throw" id="throw"><div class="ball big"></div></div>
+    <div class="plat self-p"></div><div class="mon self-m" id="bMeAv"></div>
+    <div class="info self"><div class="n"><span id="bMe"></span><small>you</small></div><div class="sub" id="bMeZone"></div></div>
+    <div class="dialog" id="dialog"></div>
+    <div class="menu">
+      <button class="main" id="bCatch"><span class="ball"></span>CATCH</button>
+      <button id="bWhy">WHY?</button>
+      <button id="bNext">NEXT</button>
+      <button id="bRun">RUN</button>
+    </div>
+  </section>
+
+  <!-- DEX (collection) -->
+  <section class="screen" id="s-dex">
+    <div class="dex-head"><div><div class="kicker">Your collection</div><h3>Dex</h3></div><button class="link" id="dexBack">Badge</button></div>
+    <div class="dex-grid" id="dex"></div>
+  </section>
+
+  <div class="flash" id="flash"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let me = null, tags = [], current = null, rarityOf = {}, skipped = [];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const first = (n) => String(n || '').split(' ')[0];
+const dexNo = (id) => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) % 9973; return '#' + String(h % 10000).padStart(4, '0'); };
+const RANK = { legendary: 0, rare: 1, common: 2 };
+// Venue zones (same as app/seed.js) — shown as wayfinding signs.
+const ZONES = [
+  ['Keynote Hall', 40.76760, -111.89540], ['Expo Hall', 40.76660, -111.89470], ['Session rooms 150', 40.76820, -111.89680],
+  ['Session rooms 250', 40.76590, -111.89690], ['Food court', 40.76700, -111.89760], ['Hallway track', 40.76720, -111.89620],
+];
+
+let me = null, tags = [], rarityOf = {}, skipped = [], last = null, current = null, busy = false;
 let dex = [];
 try { dex = JSON.parse(localStorage.getItem('dex') || '[]'); } catch {}
 
-const map = L.map('map', { zoomControl: true }).setView([40.7671, -111.8962], 18);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20, attribution: '© OpenStreetMap' }).addTo(map);
+async function api(path, opts) { const r = await fetch(path, opts); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+function err(e) { console.error(e); $('err').textContent = 'Something went wrong. Try again.'; $('err').classList.add('on'); setTimeout(() => $('err').classList.remove('on'), 3000); }
+function show(id) { document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('on', s.id === id)); if (id === 's-hunt') setTimeout(() => map.invalidateSize(), 50); }
+
+/* ---------- map: our own venue floor plan (no tiles), real geo underneath ---------- */
+const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([40.7671, -111.8962], 18);
+const DLAT = 0.00026, DLON = 0.00036; // half a room, ~30 m
+const lats = ZONES.map((z) => z[1]), lons = ZONES.map((z) => z[2]);
+L.rectangle([[Math.min(...lats) - DLAT * 1.6, Math.min(...lons) - DLON * 1.4], [Math.max(...lats) + DLAT * 1.8, Math.max(...lons) + DLON * 1.4]],
+  { color: '#d8dce2', weight: 2, fillColor: '#fafafa', fillOpacity: 1, interactive: false }).addTo(map);
+for (const [n, lat, lon] of ZONES) {
+  L.rectangle([[lat - DLAT, lon - DLON], [lat + DLAT, lon + DLON]], { color: '#d8dce2', weight: 2, fillColor: '#fff', fillOpacity: 1, interactive: false }).addTo(map);
+  L.marker([lat + DLAT, lon], { icon: L.divIcon({ className: '', html: `<span class="sign">${esc(n)}</span>`, iconSize: [0, 0] }), interactive: false }).addTo(map);
+}
 const layers = L.layerGroup().addTo(map);
 
-async function api(path, opts) { const r = await fetch(path, opts); if (!r.ok) throw new Error(await r.text()); return r.json(); }
-
-function renderMe() {
-  $('meAvatar').textContent = me.avatar || '🙂';
-  $('meName').textContent = me.name;
-  $('meZone').textContent = me.zone ? `You are in: ${me.zone}` : '';
-  $('meTags').innerHTML = tags.map((t, i) => `<span class="tag ${rarityOf[t] || ''}">${esc(t)}<button data-i="${i}" title="Remove">✕</button></span>`).join('');
+/* ---------- 1 · badge ---------- */
+function rarityFrom(r) { for (const [t, n] of Object.entries(r.crowd)) rarityOf[t] = n / r.total < 0.02 ? 'legendary' : n / r.total < 0.06 ? 'rare' : 'common'; }
+function renderBadge() {
+  $('meAv').textContent = me.avatar || '🙂';
+  $('meName').textContent = first(me.name);
+  $('meZone').textContent = me.zone || '';
+  const sorted = [...tags].sort((a, b) => (RANK[rarityOf[a]] ?? 3) - (RANK[rarityOf[b]] ?? 3));
+  $('meTags').innerHTML = sorted.map((t) => `<span class="tag ${rarityOf[t] || ''}">${esc(t)}<button data-t="${esc(t)}" aria-label="Remove ${esc(t)}">×</button></span>`).join('')
+    + '<input class="tag-input" id="addTag" placeholder="+ add" maxlength="30">';
+  $('ribbons').innerHTML = sorted.filter((t) => rarityOf[t] === 'legendary' || rarityOf[t] === 'rare').slice(0, 3)
+    .map((t, i) => `<div class="ribbon ${rarityOf[t]}" style="animation-delay:${.1 + i * .08}s">${rarityOf[t]}<br>${esc(t)}</div>`).join('');
+  $('toDex').textContent = `Dex (${dex.length})`;
 }
-$('meTags').addEventListener('click', (e) => { const i = e.target.dataset.i; if (i !== undefined) { tags.splice(+i, 1); renderMe(); } });
-$('addTag').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && e.target.value.trim()) { tags.push(e.target.value.trim()); e.target.value = ''; renderMe(); }
+$('meTags').addEventListener('click', (e) => { const t = e.target.dataset.t; if (t) { tags = tags.filter((x) => x !== t); last = null; renderBadge(); } });
+$('meTags').addEventListener('keydown', (e) => {
+  if (e.target.id === 'addTag' && e.key === 'Enter' && e.target.value.trim()) {
+    const t = e.target.value.trim(); if (!tags.includes(t)) tags.push(t); last = null;
+    refreshRarity().then(() => $('addTag').focus()).catch(err);
+  }
 });
-
+async function refreshRarity() { last = await findMatch(); rarityFrom(last); renderBadge(); }
 async function newMe() {
-  me = await api('/api/me'); tags = [...me.tags]; skipped = []; rarityOf = {};
-  renderMe(); layers.clearLayers();
-  map.setView([me.location.lat, me.location.lon], 18);
-  L.marker([me.location.lat, me.location.lon]).addTo(layers).bindTooltip('You', { permanent: true });
-  $('encounter').innerHTML = '<h2>Encounter</h2><p class="empty">Press "Find my match".</p>';
+  me = await api('/api/me'); tags = [...me.tags]; skipped = []; rarityOf = {}; last = null;
+  renderBadge(); await refreshRarity();
 }
 
+/* ---------- 2 · hunt ---------- */
+function findMatch() { return api('/api/match?' + new URLSearchParams({ id: me.id, tags: tags.join(','), exclude: skipped.join(',') })); }
 async function hunt() {
-  const q = new URLSearchParams({ id: me.id, tags: tags.join(','), exclude: skipped.join(',') });
-  const r = await api('/api/match?' + q);
-  for (const [t, n] of Object.entries(r.crowd)) rarityOf[t] = n / r.total < 0.02 ? 'legendary' : n / r.total < 0.06 ? 'rare' : 'common';
-  renderMe();
-  current = r.matches[0];
-  if (!current) { $('encounter').innerHTML = '<h2>Encounter</h2><p class="empty">Nobody shares these interests. Add one more.</p>'; return; }
-  const max = Math.max(...current.shared.map((s) => s.points), 1);
-  const g = current.gem;
-  const heatTxt = { hot: '🔥 HOT', warm: '🌤 WARM', cold: '❄️ COLD' }[current.heat] || '';
-  $('encounter').innerHTML = `
-    <h2>Encounter</h2>
-    <div class="wild">A wild ${esc(current.name)} appeared!</div>
-    <div class="row"><div class="avatar">${esc(current.avatar)}</div><div><div class="name">${esc(current.name)}</div><div class="muted">Match score ${current.score} · best of ${r.total.toLocaleString()} people</div></div></div>
-    <div class="gem ${g.rarity}">
-      <div class="label">💎 ${g.rarity.toUpperCase()} GEM</div>
-      <div class="t">${esc(g.tag)}</div>
-      <div class="muted">Only ${g.people} of ${r.total.toLocaleString()} people here like this. You both do.</div>
-    </div>
-    <div class="muted">Why this match (points per shared interest):</div>
-    <div class="bars">${current.shared.map((s) => `<div class="bar"><span>${esc(s.tag)}</span><span class="track"><i style="width:${Math.max(3, 100 * s.points / max)}%"></i></span><b>+${s.points}</b></div>`).join('')}</div>
-    <div class="heat ${current.heat}">${heatTxt} · ${current.distance} m</div>
-    <div class="muted">Clue: look in <b>${esc(current.zone)}</b>. Opener: "Hi! I hear you're into ${esc(g.tag)} too?"</div>
-    <div class="btns" style="margin-top:12px"><button class="btn go" id="catch">Catch!</button><button class="btn" id="next">Next</button></div>`;
-  $('catch').onclick = catchIt;
-  $('next').onclick = () => { skipped.push(current.id); hunt(); };
-  drawMap(g.tag);
+  if (busy || !tags.length) return; busy = true;
+  try {
+    const r = last || await findMatch(); last = null; rarityFrom(r);
+    current = r.matches[0]; current && (current.total = r.total, current.maxScore = tags.reduce((s, t) => s + Math.log(r.total / (r.crowd[t] || r.total)), 0));
+    if (!current) { err(new Error('no match')); $('err').textContent = 'Nobody shares these interests. Add one more.'; show('s-badge'); return; }
+    const g = current.gem;
+    $('hGem').textContent = g.tag;
+    $('hRar').className = 'tag ' + g.rarity; $('hRar').textContent = `${g.rarity[0].toUpperCase() + g.rarity.slice(1)} · ${g.people} of ${r.total.toLocaleString()}`;
+    $('hDist').textContent = current.distance != null ? `~${current.distance} m` : '';
+    $('hZone').textContent = current.zone || '';
+    const more = current.shared.slice(1, 3).map((s) => s.tag);
+    $('hClue').textContent = more.length ? `Clue: likes ${more.join(' and ')} too. Look around ${current.zone}.` : `Clue: look around ${current.zone}.`;
+    show('s-hunt');
+    $('hWarm').style.left = '8%';
+    setTimeout(() => $('hWarm').style.left = ({ hot: '88%', warm: '55%', cold: '18%' }[current.heat] || '50%'), 200);
+    await drawMap(g.tag);
+  } finally { busy = false; }
 }
-
 async function drawMap(gemTag) {
   layers.clearLayers();
-  L.marker([me.location.lat, me.location.lon]).addTo(layers).bindTooltip('You', { permanent: true });
+  const you = [me.location.lat, me.location.lon];
   const cells = await api('/api/heat?tag=' + encodeURIComponent(gemTag));
-  for (const c of cells) L.circle([c.lat, c.lon], { radius: 6 + 3 * c.count, color: '#f5b301', weight: 1, fillOpacity: .35 }).addTo(layers);
-  // Zone only, not the exact position.
-  const z = current.zoneCenter;
-  L.circle([z.lat, z.lon], { radius: 35, color: '#e3350d', weight: 3, dashArray: '6 6', fillOpacity: .08 })
-    .addTo(layers).bindTooltip(`${current.avatar} somewhere here`, { permanent: true });
-  map.fitBounds(L.latLngBounds([[me.location.lat, me.location.lon], [z.lat, z.lon]]).pad(0.6));
+  for (const c of cells) L.circle([c.lat, c.lon], { radius: Math.min(22, 4 + 3 * Math.sqrt(c.count)), stroke: false, fillColor: '#f2a900', fillOpacity: .28 }).addTo(layers);
+  L.marker(you, { icon: L.divIcon({ className: '', html: '<div class="you-dot"></div>', iconSize: [16, 16] }) }).addTo(layers);
+  const z = current.zoneCenter; // zone only, never the exact position
+  if (z) {
+    L.marker([z.lat, z.lon], { icon: L.divIcon({ className: '', html: '<div class="hot-pin">?</div>', iconSize: [32, 32] }) }).addTo(layers);
+    map.fitBounds(L.latLngBounds([you, [z.lat, z.lon]]), { paddingTopLeft: [40, 120], paddingBottomRight: [40, 260], maxZoom: 19 });
+  } else map.setView(you, 18);
 }
 
+/* ---------- 3 · encounter ---------- */
+let typing = null;
+function say(html, done) {
+  clearInterval(typing);
+  const box = $('dialog'); const tmp = document.createElement('div'); tmp.innerHTML = html;
+  const full = tmp.innerHTML; let i = 0; box.innerHTML = '';
+  // Type the text, keeping tags whole.
+  typing = setInterval(() => {
+    if (full[i] === '<') i = full.indexOf('>', i) + 1; else i++;
+    box.innerHTML = full.slice(0, i);
+    if (i >= full.length) { clearInterval(typing); box.innerHTML = full + '<span class="caret">▼</span>'; done && done(); }
+  }, 22);
+}
+function encounter() {
+  const c = current, g = c.gem;
+  $('flash').classList.remove('go'); void $('flash').offsetWidth; $('flash').classList.add('go');
+  setTimeout(() => {
+    $('bName').textContent = first(c.name); $('bNo').textContent = dexNo(c.id);
+    $('bTypes').innerHTML = c.shared.slice(0, 4).map((s) => `<span class="type ${s.rarity}">${esc(s.tag)}</span>`).join('');
+    $('bAv').textContent = c.avatar; $('bAv').classList.remove('caught');
+    $('bMe').textContent = first(me.name); $('bMeAv').textContent = me.avatar || '🙂'; $('bMeZone').textContent = me.zone || '';
+    $('bHp').style.width = '0';
+    ['bCatch', 'bWhy', 'bNext', 'bRun'].forEach((b) => $(b).disabled = false);
+    show('s-battle');
+    // re-run entry animations
+    ['bAv', 'bMeAv'].forEach((id) => { const el = $(id); el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; });
+    setTimeout(() => $('bHp').style.width = Math.max(8, Math.min(100, 100 * c.score / (c.maxScore || c.score))) + '%', 50);
+    say(`A wild <b>${esc(first(c.name).toUpperCase())}</b> appeared!<br>You both love <b>${esc(g.tag)}</b>. Only ${g.people} here do.`);
+  }, 450);
+}
+function why() {
+  const rows = current.shared.map((s) => `<span>${esc(s.tag)} <small>(${s.people} people)</small></span><span>+${s.points}</span>`).join('');
+  clearInterval(typing);
+  $('dialog').innerHTML = `<div class="why">${rows}<span><b>Match</b></span><span><b>${current.score}</b></span></div>`;
+}
 async function catchIt() {
-  await api('/api/catch', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ me: me.id, target: current.id, gem: current.gem.tag }) });
-  $('caughtText').innerHTML = `Gotcha!<br>${esc(current.name)} was caught!`;
-  $('caught').classList.add('show');
-  setTimeout(() => $('caught').classList.remove('show'), 1800);
-  dex.unshift({ name: current.name, avatar: current.avatar, gem: current.gem.tag, rarity: current.gem.rarity });
-  try { localStorage.setItem('dex', JSON.stringify(dex.slice(0, 30))); } catch {}
-  renderDex(); skipped.push(current.id);
-}
-function renderDex() {
-  $('dex').innerHTML = dex.length ? dex.map((d) => `<div class="mon"><b>${esc(d.avatar)}</b>${esc(d.name.split(' ')[0])}<br><span class="tag ${d.rarity}">${esc(d.gem)}</span></div>`).join('') : '<p class="empty">No catches yet.</p>';
+  ['bCatch', 'bWhy', 'bNext', 'bRun'].forEach((b) => $(b).disabled = true);
+  const c = current;
+  say(`${esc(first(me.name).toUpperCase())} threw a ball!`);
+  const t = $('throw'); t.classList.remove('go'); void t.offsetWidth; t.classList.add('go');
+  setTimeout(() => $('bAv').classList.add('caught'), 450);
+  try {
+    await api('/api/catch', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ me: me.id, target: c.id, gem: c.gem.tag }) });
+  } catch (e) { err(e); }
+  setTimeout(() => {
+    say(`Gotcha!<br><b>${esc(first(c.name).toUpperCase())}</b> was caught! Say hi in ${esc(c.zone)}.`, () => {
+      dex = [{ id: c.id, name: c.name, avatar: c.avatar, gem: c.gem.tag, rarity: c.gem.rarity }, ...dex.filter((d) => d.id !== c.id)].slice(0, 30);
+      try { localStorage.setItem('dex', JSON.stringify(dex)); } catch {}
+      skipped.push(c.id);
+      setTimeout(() => { t.classList.remove('go'); renderDex(); show('s-dex'); }, 1400);
+    });
+  }, 2300);
 }
 
-$('hunt').onclick = () => hunt().catch(showErr);
-$('newMe').onclick = () => newMe().catch(showErr);
+/* ---------- dex ---------- */
+function renderDex() {
+  $('dex').innerHTML = dex.length ? dex.map((d) => `<div class="card"><span class="no">${dexNo(d.id || d.name)}</span><div class="av">${esc(d.avatar)}</div><b>${esc(first(d.name))}</b><span class="tag ${esc(d.rarity)}">${esc(d.gem)}</span></div>`).join('')
+    : '<p class="empty">No catches yet. Start the hunt.</p>';
+  $('toDex').textContent = `Dex (${dex.length})`;
+}
+
+/* ---------- wiring ---------- */
+$('go').onclick = () => hunt().catch(err);
+$('approach').onclick = encounter;
+$('huntBack').onclick = () => show('s-badge');
+$('bCatch').onclick = () => catchIt().catch(err);
+$('bWhy').onclick = why;
+$('bNext').onclick = () => { skipped.push(current.id); hunt().catch(err); };
+$('bRun').onclick = () => { renderBadge(); show('s-badge'); };
+$('newMe').onclick = () => newMe().catch(err);
+$('toDex').onclick = () => { renderDex(); show('s-dex'); };
+$('dexBack').onclick = () => { renderBadge(); show('s-badge'); };
 api('/api/version').then((v) => $('ver').textContent = 'v ' + v.version).catch(() => {});
-function showErr(e) { console.error(e); $("encounter").innerHTML = "<h2>Encounter</h2><p class=\"empty\">Something went wrong. Try again.</p>"; }
 renderDex();
-newMe().catch((e) => { $('encounter').innerHTML = '<h2>Encounter</h2><p class="empty">Cannot reach the game server.</p>'; });
+newMe().catch((e) => { err(e); $('err').textContent = 'Cannot reach the game server.'; });
 </script>
 </body>
 </html>
