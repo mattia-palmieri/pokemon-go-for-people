@@ -7,7 +7,7 @@ const { es } = require('./elastic');
 
 const port = Number(process.env.PORT || 8080);
 const version = process.env.APP_VERSION || 'dev';
-const PLAYERS = 'players';
+const PLAYERS = process.env.PLAYERS_INDEX || 'players';
 const CATCHES = 'catches';
 // Zone centers (same as seed.js). The map shows these, never a person's position.
 const ZONE_CENTERS = {
@@ -75,19 +75,38 @@ function playerCount() {
   return count.value ?? count.inflight;
 }
 
-// The core: one Elastic query. Each shared interest is a term query; BM25's
-// IDF makes a shared rare interest worth far more than a shared common one,
-// so "Kubernetes" (everyone) adds ~0 and "eBPF" (3%) adds a lot.
+// The core: one hybrid Elastic query. Each shared interest is a term query;
+// BM25's IDF makes a shared rare interest worth far more than a shared common
+// one, so "Kubernetes" (everyone) adds ~0 and "eBPF" (3%) adds a lot. A Jina
+// semantic leg on bios finds people who mean the same thing in other words.
 async function match(me, tags, exclude) {
+  const must_not = [{ ids: { values: [me.id, ...exclude].filter(Boolean) } }];
   const r = await es('POST', `/${PLAYERS}/_search`, {
     size: 5,
     track_total_hits: true,
-    _source: ['name', 'avatar', 'tags', 'zone', 'location'],
-    query: {
-      bool: {
-        should: tags.map((t) => ({ term: { tags: { value: t, _name: t } } })),
-        minimum_should_match: 1,
-        must_not: [{ ids: { values: [me.id, ...exclude].filter(Boolean) } }],
+    _source: ['name', 'avatar', 'tags', 'bio', 'zone', 'location'],
+    // Hybrid: BM25 on exact tags (rarity via IDF) + Jina semantic search on
+    // bios (meaning: "kernel tracing" finds eBPF people), fused with RRF.
+    retriever: {
+      rrf: {
+        rank_window_size: 50,
+        retrievers: [
+          {
+            standard: {
+              // min_score drops matches on common tags only (Kubernetes ~0.1):
+              // an interest everyone has is not a match.
+              min_score: 1,
+              query: {
+                bool: {
+                  should: tags.map((t) => ({ term: { tags: { value: t, _name: t } } })),
+                  minimum_should_match: 1,
+                  must_not,
+                },
+              },
+            },
+          },
+          { standard: { query: { bool: { must: { semantic: { field: 'bio', query: tags.join(', ') } }, must_not } } } },
+        ],
       },
     },
     aggs: {
@@ -101,27 +120,36 @@ async function match(me, tags, exclude) {
   const df = Object.fromEntries(r.aggregations.crowd.df.buckets.map((b) => [b.key, b.doc_count]));
   const points = (t) => Math.round(Math.log(total / (df[t] || 1)) * 10) / 10;
 
+  // Words nobody has as a tag ("kernel tracing") can only match by meaning.
+  const free = tags.filter((t) => !df[t]);
+  const rarest = [...tags].sort((a, b) => (df[a] || 0) - (df[b] || 0))[0];
   const matches = r.hits.hits.map((h) => {
     const shared = (h.matched_queries || [])
       .map((t) => ({ tag: t, people: df[t] || 0, points: points(t), rarity: rarity(df[t] || 0, total) }))
       .sort((a, b) => a.people - b.people);
+    // Only common tags in common (everyone has Kubernetes)? Then the match came from meaning.
+    const byMeaning = !shared.some((x) => x.rarity !== 'common');
+    const gemTag = free[0] || rarest;
+    const gem = byMeaning
+      ? { tag: gemTag, people: df[gemTag] || 0, points: points(gemTag), rarity: free[0] ? 'legendary' : rarity(df[gemTag] || 0, total), meaning: true }
+      : shared[0];
     const meters = me.location ? metersBetween(me.location, h._source.location) : null;
     return {
       id: h._id,
       name: h._source.name,
       avatar: h._source.avatar,
       zone: h._source.zone,
-      score: Math.round(h._score * 10) / 10,
-      gem: shared[0],
+      // Shown score = sum of rarity points (the IDF story); order = RRF rank.
+      score: Math.round((byMeaning ? gem.points : shared.reduce((a, x) => a + x.points, 0)) * 10) / 10,
+      gem,
       shared,
+      bio: h._source.bio || '',
       distance: meters == null ? null : Math.round(meters / 25) * 25,
       heat: meters == null ? null : heat(meters),
       // Zone only, never the exact position: privacy by design.
       zoneCenter: ZONE_CENTERS[h._source.zone] || null,
     };
   });
-  // Same score? The closer person wins: easier to find.
-  matches.sort((a, b) => b.score - a.score || (a.distance ?? 1e9) - (b.distance ?? 1e9));
   return { total, crowd: df, matches };
 }
 

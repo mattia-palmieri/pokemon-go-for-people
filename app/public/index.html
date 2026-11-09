@@ -153,7 +153,7 @@ async function hunt() {
     if (!current) { err(new Error('no match')); $('err').textContent = 'Nobody shares these interests. Add one more.'; show('s-badge'); return; }
     const g = current.gem;
     $('hGem').textContent = g.tag;
-    $('hRar').className = 'tag ' + g.rarity; $('hRar').textContent = `${g.rarity[0].toUpperCase() + g.rarity.slice(1)} · ${g.people} of ${r.total.toLocaleString()}`;
+    $('hRar').className = 'tag ' + g.rarity; $('hRar').textContent = g.meaning ? '≈ By meaning · Jina' : `${g.rarity[0].toUpperCase() + g.rarity.slice(1)} · ${g.people} of ${r.total.toLocaleString()}`;
     $('hDist').textContent = current.distance != null ? `~${current.distance} m` : '';
     $('hZone').textContent = current.zone || '';
     const more = current.shared.slice(1, 3).map((s) => s.tag);
@@ -195,7 +195,7 @@ function encounter() {
   $('flash').classList.remove('go'); void $('flash').offsetWidth; $('flash').classList.add('go');
   setTimeout(() => {
     $('bName').textContent = first(c.name); $('bNo').textContent = dexNo(c.id);
-    $('bTypes').innerHTML = c.shared.slice(0, 4).map((s) => `<span class="type ${s.rarity}">${esc(s.tag)}</span>`).join('');
+    $('bTypes').innerHTML = (g.meaning ? [g] : c.shared.slice(0, 4)).map((s) => `<span class="type ${s.rarity}">${esc(s.tag)}</span>`).join('');
     $('bAv').textContent = c.avatar; $('bAv').classList.remove('caught');
     $('bMe').textContent = first(me.name); $('bMeAv').textContent = me.avatar || '🙂'; $('bMeZone').textContent = me.zone || '';
     $('bHp').style.width = '0';
@@ -204,11 +204,16 @@ function encounter() {
     // re-run entry animations
     ['bAv', 'bMeAv'].forEach((id) => { const el = $(id); el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; });
     setTimeout(() => $('bHp').style.width = Math.max(8, Math.min(100, 100 * c.score / (c.maxScore || c.score))) + '%', 50);
-    say(`A wild <b>${esc(first(c.name).toUpperCase())}</b> appeared!<br>You both love <b>${esc(g.tag)}</b>. Only ${g.people} here do.`);
+    say(g.meaning
+      ? `A wild <b>${esc(first(c.name).toUpperCase())}</b> appeared!<br>No shared tag, but the same idea as <b>${esc(g.tag)}</b>: “${esc(c.bio)}”`
+      : `A wild <b>${esc(first(c.name).toUpperCase())}</b> appeared!<br>You both love <b>${esc(g.tag)}</b>. Only ${g.people} here do.`);
   }, 450);
 }
 function why() {
-  const rows = current.shared.map((s) => `<span>${esc(s.tag)} <small>(${s.people} people)</small></span><span>+${s.points}</span>`).join('');
+  const g = current.gem;
+  const rows = (g.meaning ? `<span>≈ ${esc(g.tag)} <small>(by meaning · Jina)</small></span><span>+${g.points}</span>` : '')
+    + current.shared.filter((s) => !g.meaning || s.rarity !== 'common').map((s) => `<span>${esc(s.tag)} <small>(${s.people} people)</small></span><span>+${s.points}</span>`).join('')
+    + (current.bio ? `<span class="bio"><small>“${esc(current.bio)}”</small></span><span></span>` : '');
   clearInterval(typing);
   $('dialog').innerHTML = `<div class="why">${rows}<span><b>Match</b></span><span><b>${current.score}</b></span></div>`;
 }
