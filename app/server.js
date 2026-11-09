@@ -9,6 +9,12 @@ const port = Number(process.env.PORT || 8080);
 const version = process.env.APP_VERSION || 'dev';
 const PLAYERS = 'players';
 const CATCHES = 'catches';
+// Zone centers (same as seed.js). The map shows these, never a person's position.
+const ZONE_CENTERS = {
+  'Keynote Hall': { lat: 40.7676, lon: -111.8954 }, 'Expo Hall': { lat: 40.7666, lon: -111.8947 },
+  'Session rooms 150': { lat: 40.7682, lon: -111.8968 }, 'Session rooms 250': { lat: 40.7659, lon: -111.8969 },
+  'Food court': { lat: 40.7670, lon: -111.8976 }, 'Hallway track': { lat: 40.7672, lon: -111.8962 },
+};
 
 const send = (res, code, body, type = 'application/json') => {
   res.writeHead(code, { 'content-type': type });
@@ -94,10 +100,10 @@ async function match(me, tags, exclude) {
       score: Math.round(h._score * 10) / 10,
       gem: shared[0],
       shared,
-      distance: meters,
+      distance: meters == null ? null : Math.round(meters / 25) * 25,
       heat: meters == null ? null : heat(meters),
       // Zone only, never the exact position: privacy by design.
-      zoneCenter: h._source.location,
+      zoneCenter: ZONE_CENTERS[h._source.zone] || null,
     };
   });
   // Same score? The closer person wins: easier to find.
@@ -112,12 +118,12 @@ async function heatmap(tag) {
     query: { term: { tags: tag } },
     aggs: {
       cells: {
-        geohash_grid: { field: 'location', precision: 8 },
+        geohash_grid: { field: 'location', precision: 7, min_doc_count: 3 },
         aggs: { center: { geo_centroid: { field: 'location' } } },
       },
     },
   });
-  return r.aggregations.cells.buckets.map((b) => ({ count: b.doc_count, ...b.center.location }));
+  return r.aggregations.cells.buckets.filter((b) => b.doc_count >= 3).map((b) => ({ count: b.doc_count, ...b.center.location }));
 }
 
 async function readBody(req) {
@@ -142,7 +148,8 @@ const server = http.createServer(async (req, res) => {
       return me ? send(res, 200, me) : send(res, 404, { error: 'no such player' });
     }
     if (p === '/api/match') {
-      const me = (await getPlayer(url.searchParams.get('id') || '')) || {};
+      const id = url.searchParams.get('id');
+      const me = (id && (await getPlayer(id))) || {};
       const tags = (url.searchParams.get('tags') || (me.tags || []).join(','))
         .split(',').map((t) => t.trim()).filter(Boolean).slice(0, 20);
       if (!tags.length) return send(res, 400, { error: 'give id or tags' });
