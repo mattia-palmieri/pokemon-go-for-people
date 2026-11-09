@@ -256,5 +256,9 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, () => console.log(`listening on :${port}, version ${version}`));
-process.on('SIGTERM', () => server.close(() => process.exit(0)));
+// Start only when run directly (`node server.js`); tests require() the helpers.
+if (require.main === module) {
+  server.listen(port, () => console.log(`listening on :${port}, version ${version}`));
+  process.on('SIGTERM', () => server.close(() => process.exit(0)));
+}
+module.exports = { rarity, metersBetween, heat };
