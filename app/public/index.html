@@ -135,7 +135,9 @@ $('meTags').addEventListener('keydown', (e) => {
     refreshRarity().then(() => $('addTag').focus()).catch(err);
   }
 });
-async function refreshRarity() { last = await findMatch(); rarityFrom(last); renderBadge(); }
+// Cache the badge-screen match, but reuse it only for the same tags + skip list.
+const qkey = () => tags.join(',') + '|' + skipped.join(',');
+async function refreshRarity() { const k = qkey(); const r = await findMatch(); if (k === qkey()) { last = r; last.key = k; } rarityFrom(r); renderBadge(); }
 async function newMe() {
   me = await api('/api/me'); tags = [...me.tags]; skipped = []; rarityOf = {}; last = null;
   renderBadge(); await refreshRarity();
@@ -146,7 +148,7 @@ function findMatch() { return api('/api/match?' + new URLSearchParams({ id: me.i
 async function hunt() {
   if (busy || !tags.length) return; busy = true;
   try {
-    const r = last || await findMatch(); last = null; rarityFrom(r);
+    const r = (last && last.key === qkey()) ? last : await findMatch(); last = null; rarityFrom(r);
     current = r.matches[0]; current && (current.total = r.total, current.maxScore = tags.reduce((s, t) => s + Math.log(r.total / (r.crowd[t] || r.total)), 0));
     if (!current) { err(new Error('no match')); $('err').textContent = 'Nobody shares these interests. Add one more.'; show('s-badge'); return; }
     const g = current.gem;
@@ -218,7 +220,12 @@ async function catchIt() {
   setTimeout(() => $('bAv').classList.add('caught'), 450);
   try {
     await api('/api/catch', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ me: me.id, target: c.id, gem: c.gem.tag }) });
-  } catch (e) { err(e); }
+  } catch (e) {
+    err(e); t.classList.remove('go'); $('bAv').classList.remove('caught');
+    ['bCatch', 'bWhy', 'bNext', 'bRun'].forEach((b) => $(b).disabled = false);
+    say('Oh no! The ball missed. Try again.');
+    return;
+  }
   setTimeout(() => {
     say(`Gotcha!<br><b>${esc(first(c.name).toUpperCase())}</b> was caught! Say hi in ${esc(c.zone)}.`, () => {
       dex = [{ id: c.id, name: c.name, avatar: c.avatar, gem: c.gem.tag, rarity: c.gem.rarity }, ...dex.filter((d) => d.id !== c.id)].slice(0, 30);
