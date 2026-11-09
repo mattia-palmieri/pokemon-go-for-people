@@ -117,13 +117,13 @@ Needs Node 22 and an Elastic Cloud deployment with the Jina inference endpoint.
 ```bash
 cd app
 npm ci
+npm test                               # the same tests CI runs on every PR
 cat > ../.env <<'EOF'
 ELASTIC_URL=https://<your-deployment>.es.<region>.elastic.cloud
 ELASTIC_API_KEY=<api key>
 EOF
 node --env-file=../.env seed.js 2000   # create the 2,000 bot attendees
 node --env-file=../.env server.js      # http://localhost:8080
-npm test                               # the same tests CI runs on every PR
 ```
 
 Traces to Dash0 (optional): set `OTEL_EXPORTER_OTLP_ENDPOINT=<dash0 otlp endpoint>` and `OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer <dash0 token>"`, and run with
