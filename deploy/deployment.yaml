@@ -35,6 +35,39 @@ spec:
                 secretKeyRef:
                   name: elastic
                   key: api-key
+            # OpenTelemetry -> Dash0 (zero-code: auto-instrumentation via --require).
+            - name: NODE_OPTIONS
+              value: "--require @opentelemetry/auto-instrumentations-node/register"
+            - name: OTEL_SERVICE_NAME
+              value: "pokemon-go-for-people"
+            - name: OTEL_NODE_ENABLED_INSTRUMENTATIONS
+              value: "http,undici"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "http/protobuf"
+            - name: OTEL_TRACES_EXPORTER
+              value: "otlp"
+            - name: OTEL_METRICS_EXPORTER
+              value: "otlp"
+            - name: OTEL_LOGS_EXPORTER
+              value: "otlp"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "k8s.namespace.name=team-mp,k8s.pod.name=$(POD_NAME),deployment.environment=hackathon"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: dash0
+                  key: endpoint
+                  optional: true
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              valueFrom:
+                secretKeyRef:
+                  name: dash0
+                  key: headers
+                  optional: true
           resources:
             requests:
               cpu: 100m
